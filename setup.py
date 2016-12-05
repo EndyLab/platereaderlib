@@ -6,5 +6,11 @@ setup(
     author='Anton Jackson-Smith',
     author_email='acjs@stanford.edu',
     version='1',
-    modules=['platereader.py']
+    modules=['platereader.py'],
+    install_requires=[
+        'numpy',
+        'pandas',
+        'matplotlib',
+        'seaborn',
+    ],
 )
