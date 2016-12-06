@@ -46,6 +46,7 @@ def load_victor3(filename):
     # Set the Time column to the first time for that measurement (the time that well A1 was read)
     data['Time'] = data.groupby('MeasurementCount')['RealTime'].transform(lambda x: x.iloc[0])
 
+
     # Remove the incrementing numbers on the same measurement
     data['Measurement']  = data['Measurement'].str.replace(r'(.*)\.[0-9]+$', r'\1')
 
@@ -54,7 +55,7 @@ def load_victor3(filename):
 
     # Fix time formatting
     data['Time'] = pd.to_timedelta(data['Time'].astype(str))
-    data['RealTime'] = pd.to_timedelta(data['Time'].astype(str))
+    data['RealTime'] = pd.to_timedelta(data['RealTime'].astype(str))
 
     return data
 
