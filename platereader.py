@@ -16,6 +16,10 @@ try :
     from StringIO import StringIO
 except ImportError:
     from io import StringIO
+<<<<<<< HEAD
+=======
+
+>>>>>>> 0df4e13c8725ba566dfc0a5384cfd2ef8a80a46d
 
 def load_victor3(filename):
     data = pd.read_excel(filename)
