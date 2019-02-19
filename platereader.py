@@ -11,8 +11,11 @@ import seaborn as sns
 import xml.etree.ElementTree as ET
 import datetime as dt
 from collections import OrderedDict
-from StringIO import StringIO
-
+# hack added for backwards compatibility in Python3
+try :
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 def load_victor3(filename):
     data = pd.read_excel(filename)
@@ -25,9 +28,9 @@ def load_victor3(filename):
 
     # Reshape the data into long form, keeping the different times as separate columns for now
     data = pd.melt(
-        data, 
-        id_vars=data.columns[:4].tolist() + data.columns[4::2].tolist(), 
-        var_name='Measurement', 
+        data,
+        id_vars=data.columns[:4].tolist() + data.columns[4::2].tolist(),
+        var_name='Measurement',
         value_name='Data')
 
     # Set up the MeasurementCount field so we can interlace the other measurements
@@ -128,7 +131,7 @@ def label(data, labels):
 
 def show_labels(labels):
     unique_labels = np.unique(labels.values.ravel())
-    sns.heatmap(labels.applymap(unique_labels.tolist().index).astype(int), 
+    sns.heatmap(labels.applymap(unique_labels.tolist().index).astype(int),
             annot=labels.fillna('').apply(lambda x: x.str.extract('(?:.* )*(.*)$')),
             fmt='', cbar=False)
 
@@ -145,10 +148,10 @@ def plot(data, labels=None):
 
     fig = plt.figure(figsize=(12,12))
     ax = sns.tsplot(
-        data=data.dropna()[data['Label'].isin(labels)], 
-        time="Time", 
-        condition="Label", 
-        unit="Well", 
+        data=data.dropna()[data['Label'].isin(labels)],
+        time="Time",
+        condition="Label",
+        unit="Well",
         value="Data")
 
     ax.xaxis.set_major_formatter(mpl.ticker.FuncFormatter(lambda x, y: pd.to_timedelta(x)))
