@@ -3,6 +3,7 @@
 #
 # Anton Jackson-Smith
 
+import re
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
@@ -12,6 +13,11 @@ import xml.etree.ElementTree as ET
 import datetime as dt
 from collections import OrderedDict
 from StringIO import StringIO
+
+# Coefficients for standard curves between 600nm
+# absorbance and OD.
+VICTOR3_COEFFS = [0.24657077,  0.04326624]
+SPECTRAMAX_COEFFS = [0.2666695 ,  0.04156069]
 
 
 def load_victor3(filename):
@@ -25,9 +31,9 @@ def load_victor3(filename):
 
     # Reshape the data into long form, keeping the different times as separate columns for now
     data = pd.melt(
-        data, 
-        id_vars=data.columns[:4].tolist() + data.columns[4::2].tolist(), 
-        var_name='Measurement', 
+        data,
+        id_vars=data.columns[:4].tolist() + data.columns[4::2].tolist(),
+        var_name='Measurement',
         value_name='Data')
 
     # Set up the MeasurementCount field so we can interlace the other measurements
@@ -65,6 +71,7 @@ def load_spectramax(filename):
 
     data = OrderedDict([
         ('Time', []),
+        ('Read', []),
         ('Wavelength', []),
         ('Plate', []),
         ('ID', []),
@@ -78,7 +85,10 @@ def load_spectramax(filename):
 
     for plate in root.findall("./PlateSections"):
         for platesection in plate:
-            time = pd.to_datetime(platesection.attrib['ReadTime'])
+            readtime = platesection.attrib['ReadTime']
+            readtime = re.sub(r'([0-9]+:[0-9]+ [AP]M [0-9]+/[0-9]+/[0-9]+).*', r'\1', readtime, flags=re.DOTALL)
+
+            time = pd.to_datetime(readtime)
             if t0 is None:
                 t0 = time
 
@@ -87,20 +97,27 @@ def load_spectramax(filename):
             waves = list()
             wavelengths = platesection.findall("./InstrumentSettings/WavelengthSettings/Wavelength")
             for wavelength in wavelengths:
-                waves.append(int(wavelength.text))
+                waves.append(int(wavelength.attrib['Index']))
 
             for wave in platesection.findall("./Wavelengths/Wavelength"):
                 wavelength = waves[int(wave.attrib['WavelengthIndex']) - 1]
 
                 for well in wave.findall("./Wells/Well"):
-                    data['Time'].append(time - t0)
-                    data['Wavelength'].append(wavelength)
-                    data['Plate'].append(plateName)
-                    data['ID'].append(int(well.attrib['WellID']))
-                    data['Well'].append(well.attrib['Name'])
-                    data['Row'].append(int(well.attrib['Row']))
-                    data['Col'].append(int(well.attrib['Col']))
-                    data['Data'].append(np.float(well[0].text))
+                    rawdata = well.findall("./RawData")[0].text.split(" ")
+
+                    for (i, t) in enumerate(well.findall("./TimeData")[0].text.split(" ")):
+                      if t == "NaN":
+                        break
+
+                      data['Time'].append(pd.to_timedelta(t + 's'))
+                      data['Read'].append(i)
+                      data['Wavelength'].append(wavelength)
+                      data['Plate'].append(plateName)
+                      data['ID'].append(int(well.attrib['WellID']))
+                      data['Well'].append(well.attrib['Name'])
+                      data['Row'].append(int(well.attrib['Row']))
+                      data['Col'].append(int(well.attrib['Col']))
+                      data['Data'].append(np.float(rawdata[i]))
 
     return pd.DataFrame(data)
 
@@ -128,7 +145,7 @@ def label(data, labels):
 
 def show_labels(labels):
     unique_labels = np.unique(labels.values.ravel())
-    sns.heatmap(labels.applymap(unique_labels.tolist().index).astype(int), 
+    sns.heatmap(labels.applymap(unique_labels.tolist().index).astype(int),
             annot=labels.fillna('').apply(lambda x: x.str.extract('(?:.* )*(.*)$')),
             fmt='', cbar=False)
 
@@ -145,10 +162,10 @@ def plot(data, labels=None):
 
     fig = plt.figure(figsize=(12,12))
     ax = sns.tsplot(
-        data=data.dropna()[data['Label'].isin(labels)], 
-        time="Time", 
-        condition="Label", 
-        unit="Well", 
+        data=data.dropna()[data['Label'].isin(labels)],
+        time="Time",
+        condition="Label",
+        unit="Well",
         value="Data")
 
     ax.xaxis.set_major_formatter(mpl.ticker.FuncFormatter(lambda x, y: pd.to_timedelta(x)))
