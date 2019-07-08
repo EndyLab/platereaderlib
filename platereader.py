@@ -12,7 +12,7 @@ import seaborn as sns
 import xml.etree.ElementTree as ET
 import datetime as dt
 from collections import OrderedDict
-from StringIO import StringIO
+from io import StringIO
 
 # Coefficients for standard curves between 600nm
 # absorbance and OD.
@@ -121,10 +121,11 @@ def load_spectramax(filename):
 
     return pd.DataFrame(data)
 
-
 def blank_plate_labels():
     return pd.DataFrame(np.NaN, index=['A','B','C','D','E','F','G','H'], columns=range(1,13), dtype=np.object)
 
+def blank_plate_labels_384():
+    return pd.DataFrame(np.NaN, index=['A','B','C','D','E','F','G','H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P'], columns=range(1,25), dtype=np.object)
 
 def label(data, labels):
     if not isinstance(labels, dict):
@@ -134,7 +135,7 @@ def label(data, labels):
         labels = label_dict
 
     all_labels = pd.DataFrame(columns=['Row','Column','Label','Well'])
-    for key, value in labels.iteritems():
+    for key, value in labels.items():
         labels_long = value.stack().rename_axis(["Row","Column"]).rename('Label').reset_index()
         labels_long["Well"] = labels_long.loc[:,'Row':'Column'].apply(lambda x: "{:s}{:g}".format(*x), axis=1)
         labels_long["Plate"] = key
@@ -142,13 +143,11 @@ def label(data, labels):
 
     return pd.merge(data, all_labels.loc[:,['Plate','Well','Label']].dropna(), on=['Plate', 'Well'])
 
-
 def show_labels(labels):
     unique_labels = np.unique(labels.values.ravel())
     sns.heatmap(labels.applymap(unique_labels.tolist().index).astype(int),
             annot=labels.fillna('').apply(lambda x: x.str.extract('(?:.* )*(.*)$')),
             fmt='', cbar=False)
-
 
 def labels_from_tsv(labels):
     raw_labels = pd.read_table(StringIO(labels), names=range(1,13), dtype=np.str)
@@ -168,5 +167,5 @@ def plot(data, labels=None):
         unit="Well",
         value="Data")
 
-    ax.xaxis.set_major_formatter(mpl.ticker.FuncFormatter(lambda x, y: pd.to_timedelta(x)))
+    ax.xaxis.set_major_formatter(mpl.ticker.FuncFormatter(lambda x, y: str(pd.Timedelta(x).to_pytimedelta())))
     fig.autofmt_xdate()
